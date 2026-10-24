@@ -18,6 +18,10 @@ const CONFIG = {
     "I feel at home when I'm with you",
     "Your laugh is my favourite sound",
     "You believe in me, always",
+    "You make ordinary days feel special",
+    "Your hugs are my safest place",
+    "How kind your heart is to everyone",
+    "You make me want to be better",
     "Because it's you. Just you."
   ],
   letter: [
@@ -43,23 +47,26 @@ const floater = () => ({ bg: 1, x: rnd(0, W), y: H + rnd(0, H * .3), s: rnd(10, 
 for (let i = 0; i < (innerWidth < 600 ? 22 : 40); i++) { const f = floater(); f.y = rnd(0, H); P.push(f); }
 function burst(x, y, n = 14, conf) {
   for (let i = 0; i < n; i++) {
-    const a = rnd(0, 6.28), v = rnd(2, 7) * dpr;
-    P.push({ x: x * dpr, y: y * dpr, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 2 * dpr, g: (conf ? .12 : .06) * dpr, s: rnd(10, 24) * dpr, c: COLORS[(Math.random() * 6) | 0], a: 1, life: 1, ch: conf && Math.random() < .5 ? '■' : '♥' });
+    const a = rnd(0, 6.28), v = (conf ? rnd(2, 7) : rnd(.8, 2.6)) * dpr;
+    P.push({ x: x * dpr, y: y * dpr, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (conf ? 2 : 1) * dpr, g: (conf ? .12 : .025) * dpr, s: rnd(10, 24) * dpr, c: COLORS[(Math.random() * 6) | 0], a: 1, life: 1, d: conf ? .012 : .007, ch: conf && Math.random() < .5 ? '■' : '♥' });
   }
+}
+function rain(x, y) { // slow, soft hearts that drift down from the cursor
+  P.push({ x: x * dpr + rnd(-8, 8) * dpr, y: y * dpr, vx: 0, vy: rnd(.25, .6) * dpr, g: .004 * dpr, s: rnd(9, 18) * dpr, c: COLORS[(Math.random() * 4) | 0], a: 1, life: 1, d: .0045, sw: rnd(0, 6.28) });
 }
 (function loop(t) {
   cx.clearRect(0, 0, W, H);
   for (let i = P.length - 1; i >= 0; i--) {
     const p = P[i];
     if (p.bg) { p.y -= p.v; p.x += Math.sin(t / 1000 + p.ph) * .5 * dpr; if (p.y < -50 * dpr) { Object.assign(p, floater()); } }
-    else { p.x += p.vx; p.y += p.vy; p.vy += p.g; p.vx *= .99; p.life -= .012; p.a = Math.max(p.life, 0); if (p.life <= 0) { P.splice(i, 1); continue; } }
+    else { p.x += p.vx; p.y += p.vy; p.vy += p.g; p.vx *= .99; if (p.sw !== undefined) p.x += Math.sin(t / 400 + p.sw) * .35 * dpr; p.life -= p.d; p.a = Math.max(p.life, 0); if (p.life <= 0) { P.splice(i, 1); continue; } }
     cx.globalAlpha = p.a; cx.fillStyle = p.c; cx.font = p.s + 'px serif'; cx.fillText(p.ch || '♥', p.x, p.y);
   }
   requestAnimationFrame(loop);
 })(0);
-addEventListener('pointerdown', e => burst(e.clientX, e.clientY, 10));
+addEventListener('pointerdown', e => burst(e.clientX, e.clientY, 8));
 let last = 0;
-addEventListener('pointermove', e => { if (e.pointerType !== 'mouse') return; const n = performance.now(); if (n - last > 70) { last = n; burst(e.clientX, e.clientY, 1); } });
+addEventListener('pointermove', e => { const n = performance.now(); if (n - last > 90) { last = n; rain(e.clientX, e.clientY); } });
 
 function balloons(n) {
   for (let i = 0; i < n; i++) {
@@ -81,14 +88,15 @@ $$('.pol').forEach(f => {
 $('#lightbox').onclick = () => $('#lightbox').classList.remove('show');
 addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('show'); if (e.key === 'Enter' && e.target.matches('[tabindex]')) e.target.click(); });
 
-$('#reasons').innerHTML = CONFIG.reasons.map(r => `<div class="card" tabindex="0"><div><b>❤</b><em>${r}</em></div></div>`).join('');
+const EMO = ['💖', '💕', '🌹', '✨', '💞', '🦋', '🌸', '💗', '🥰', '💘'];
+$('#reasonlist').innerHTML = CONFIG.reasons.map((r, i) => `<div class="card" tabindex="0" style="--i:${i}"><div><b>${EMO[i % EMO.length]}</b><em>${r}</em></div></div>`).join('');
 $$('.card').forEach(c => c.onclick = () => { c.classList.toggle('flip'); const r = c.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 8); });
 
-$('#letter').innerHTML = `<h3 class="script">My dearest ${CONFIG.name},</h3>` +
+$('#letterbody').innerHTML = `<h3 class="script">My dearest ${CONFIG.name},</h3>` +
   CONFIG.letter.map((t, i) => `<p style="--i:${i}">${t}</p>`).join('') +
   `<p class="script sign" style="--i:${CONFIG.letter.length}">Happy Birthday, my heart 💖<br>Forever yours, ${CONFIG.from}</p>`;
 $('#env').onclick = () => {
-  $('#env').classList.add('open'); $('#letter').classList.add('open'); $('#envhint').remove();
+  $('#env').classList.add('open'); $('#letterbody').classList.add('open'); $('#envhint').remove();
   burst(innerWidth / 2, innerHeight / 2, 30, 1);
 };
 $('#fin').textContent = `Happy Birthday, ${CONFIG.name} 💖`;
@@ -107,8 +115,8 @@ $('#cake').onclick = () => $('#blow').click();
 
 /* intro + hero sequence */
 function showName() {
-  $('#name').innerHTML = [...CONFIG.name].map((c, i) => `<span style="animation-delay:${i * .13}s">${c === ' ' ? '&nbsp;' : c}</span>`).join('');
-  setTimeout(() => { $('#sub').textContent = CONFIG.sub; $('#sub').classList.add('show'); $('.scroll').classList.add('show'); burst(innerWidth / 2, innerHeight * .4, 30); }, CONFIG.name.length * 130 + 500);
+  $('#name').innerHTML = `<span>${CONFIG.name}</span>`;
+  setTimeout(() => { $('#sub').textContent = CONFIG.sub; $('#sub').classList.add('show'); heroDone = true; syncNav(); burst(innerWidth / 2, innerHeight * .4, 30); }, 2300);
 }
 function typeTitle() {
   const t = $('#t1'), s = 'Happy Birthday'; let i = 0; t.classList.add('caret');
@@ -123,7 +131,23 @@ $('#open').onclick = () => {
   $('#intro').classList.add('gone'); $('#main').classList.remove('hidden');
   burst(innerWidth / 2, innerHeight / 2, 60, 1); balloons(14);
   audio.play().then(() => $('#mute').hidden = false).catch(() => {}); // add music.mp3 to enable
-  setTimeout(typeTitle, 700);
+  setTimeout(typeTitle, 700); $('#dots').classList.add('show'); syncNav();
   const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && e.target.classList.add('in')), { threshold: .15 });
   $$('.reveal').forEach(el => io.observe(el));
 };
+
+/* section navigation: dots + next button scroll to exact sections */
+const NAV = [['hero', 'Home'], ['wish', 'Make a wish'], ['moments', 'Our moments'], ['reasons', 'Why I love you'], ['letter', 'My letter'], ['finale', 'Finale']];
+const secs = NAV.map(([id]) => document.getElementById(id));
+const behavior = matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth';
+let cur = 0, heroDone = false;
+const go = i => secs[Math.max(0, Math.min(i, secs.length - 1))].scrollIntoView({ behavior, block: 'start' });
+$('#dots').innerHTML = NAV.map(([, l]) => `<button data-l="${l}" aria-label="Go to ${l}"></button>`).join('');
+$$('#dots button').forEach((b, i) => b.onclick = () => go(i));
+function syncNav() {
+  $$('#dots button').forEach((b, i) => b.classList.toggle('on', i === cur));
+  $('#next').classList.toggle('show', heroDone && cur < secs.length - 1);
+}
+$('#next').onclick = () => go(cur + 1);
+const so = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { cur = secs.indexOf(e.target); syncNav(); } }), { rootMargin: '-45% 0px -45% 0px' });
+secs.forEach(s => so.observe(s));
